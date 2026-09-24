@@ -1,0 +1,6 @@
+Nama Berkas / Skenario,Ukuran (Bytes),Waktu Enkripsi (ms),Waktu Dekripsi (ms),Entropi Cipherteks,Avalanche Effect (%)
+1 KB Dummy,1024,108.37,77.69,7.84,50.54
+1 MB Dummy,1048576,95.04,91.92,7.9998,50.06
+10 MB Dummy,10485760,147.31,169.13,8.0,50.0
+Dokumen PDF,66,89.36,82.56,5.7185,48.86
+Gambar BMP Header,554,81.96,81.38,7.6333,51.85
