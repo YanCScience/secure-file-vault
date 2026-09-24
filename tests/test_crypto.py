@@ -1,5 +1,5 @@
 import pytest
-from backend.crypto import derive_key, encrypt_file_gcm, decrypt_file_gcm, encrypt_bmp_visual
+from backend.crypto import derive_key, encrypt_file_gcm, decrypt_file_gcm, encrypt_bmp_ecb
 
 def test_key_derivation_length():
     """1. Test panjang kunci hasil PBKDF2 harus 256-bit (32 byte)"""
@@ -58,13 +58,10 @@ def test_decryption_tampered_ciphertext():
 def test_bmp_header_preservation():
     """5. Test pemisahan 54 byte header BMP tetap utuh setelah enkripsi"""
     dummy_header = b'BM' + b'\x00' * 52
-    dummy_pixels = b'\xFF\x00\x00' * 10
-    dummy_bmp = dummy_header + dummy_pixels
-    
-    result = encrypt_bmp_visual(dummy_bmp, "sandi123")
-    import base64
-    ecb_bmp = base64.b64decode(result["ecb_image_base64"])
-    gcm_bmp = base64.b64decode(result["gcm_image_base64"])
+    dummy_bmp = dummy_header + b'\xFF\x00\x00' * 10 
+
+    ecb_bmp = encrypt_bmp_ecb(dummy_bmp, "sandi123")
     
     assert ecb_bmp[:54] == dummy_header
-    assert gcm_bmp[:54] == dummy_header
+    assert len(ecb_bmp) == len(dummy_bmp)
+    assert gcm_bmp[:54] != dummy_bmp[54:]

@@ -1,21 +1,22 @@
 import os
 import sys
+import base64
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backend.crypto import encrypt_data, decrypt_data, encrypt_bmp_ecb
+from backend.crypto import encrypt_data, decrypt_data, encrypt_bmp_ecb, DEFAULT_ITERATIONS
 from backend.metrics import calculate_entropy, calculate_byte_histogram
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = 25 * 1024 * 1024  # Batas maksimum unggahan 25 MB
 
 app = FastAPI(
     title="Secure File Vault & Crypto Visualizer API",
     version="2.0.0",
-    description="Backend API untuk enkripsi data (AAES-GCM / ChaCha20-Poly1305) dan visualisasi mode enkripsi citra."
+    description="Backend API untuk enkripsi data (AES-GCM / ChaCha20-Poly1305) dan visualisasi mode enkripsi citra."
 )
 
 app.add_middleware(
@@ -38,11 +39,11 @@ class TextDecryptRequest(BaseModel):
     ciphertext: str
     tag: str
     password: str
-    iterations:int = 100000
+    iterations: int = DEFAULT_ITERATIONS
 
 @app.get("/")
 def read_root():
-    return {"message": "API Secure File Vault Siap", "status": "OK"}
+    return {"message": "API Secure File Vault Siap Beroperasi", "status": "OK"}
 
 @app.post("/api/encrypt-text")
 def api_encrypt_text(payload: TextEncryptRequest):
@@ -54,6 +55,8 @@ def api_encrypt_text(payload: TextEncryptRequest):
             algorithm=payload.algorithm
         )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -64,6 +67,8 @@ def api_decrypt_text(payload: TextDecryptRequest):
         return {"decrypted_text": decrypted_bytes.decode("utf-8")}
     except ValueError:
         raise HTTPException(status_code=400, detail="Kata sandi salah atau data telah diubah (tag verifikasi gagal).")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -76,11 +81,13 @@ async def api_encrypt_file(
     try:
         content = await file.read()
         if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=413, detail="Ukuran berkas melebihi batas 10 MB.")
+            raise HTTPException(status_code=413, detail="Ukuran file melebihi batas 25 MB.")
             
         result = encrypt_data(content, password, algorithm=algorithm)
         result["filename"] = file.filename
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -95,7 +102,9 @@ async def api_decrypt_file(
             media_type="application/octet-stream"
         )
     except ValueError:
-        raise HTTPException(status_code=400, detail="Kata sandi salah atau berkas telah terdistorsi/diubah.")
+        raise HTTPException(status_code=400, detail="Kata sandi salah atau file telah terdistorsi/diubah.")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -107,7 +116,7 @@ async def api_visualize_bmp(
     try:
         content = await file.read()
         if len(content) < 54 or content[:2] != b'BM':
-            raise HTTPException(status_code=400, detail="Berkas harus berformat BMP asli (54-byte header).")
+            raise HTTPException(status_code=400, detail="File harus berformat BMP asli (54-byte header).")
             
         ecb_bytes = encrypt_bmp_ecb(content, password)
         gcm_dict = encrypt_data(content, password, algorithm="aes-gcm")
@@ -115,7 +124,6 @@ async def api_visualize_bmp(
         entropy_plain = calculate_entropy(content)
         entropy_ecb = calculate_entropy(ecb_bytes)
         
-        import base64
         gcm_raw = base64.b64decode(gcm_dict["ciphertext"])
         entropy_gcm = calculate_entropy(gcm_raw)
         
@@ -128,5 +136,7 @@ async def api_visualize_bmp(
             "ecb_bmp_base64": base64.b64encode(ecb_bytes).decode("utf-8"),
             "gcm_ciphertext_base64": gcm_dict["ciphertext"]
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
