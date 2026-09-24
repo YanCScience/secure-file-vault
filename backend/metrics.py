@@ -1,5 +1,4 @@
 import math
-from backend.crypto import derive_key, encrypt_file_gcm
 
 def calculate_entropy(data: bytes) -> float:
     """Menghitung nilai Entropi Shannon dari data (ideal untuk cipherteks mendekati 8.0)"""
@@ -23,3 +22,13 @@ def calculate_avalanche_effect(data1: bytes, data2: bytes) -> float:
         differing_bits += bin(xor_result).count('1')
         
     return (differing_bits / total_bits) * 100
+
+def calculate_byte_histogram(data: bytes) -> dict:
+    """Menghitung frekuensi kemunculan byte 0-255 untuk grafik histogram."""
+    histogram = [0] * 256
+    for byte in data:
+        histogram[byte] += 1
+    return {
+        "total_bytes": len(data),
+        "distribution": histogram 
+    }
