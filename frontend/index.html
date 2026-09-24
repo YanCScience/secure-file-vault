@@ -38,7 +38,7 @@
     <div class="hero-text">
       <p class="kicker">Keamanan Informasi &middot; Proyek Enkripsi</p>
       <h1>Secure File Vault</h1>
-      <p class="lede">Kunci file kamu pakai AES&#8209;256&#8209;GCM atau ChaCha20&#8209;Poly1305 sebelum dikirim atau disimpan &mdash; kata sandi gak pernah keluar dari browser kamu.</p>
+      <p class="lede">Kunci file kamu pakai AES&#8209;256&#8209;GCM atau ChaCha20&#8209;Poly1305 sebelum dikirim atau disimpan &mdash; pemrosesan dilakukan di backend, jadi kata sandi dikirim ke API server.</p>
     </div>
   </header>
 
@@ -113,10 +113,89 @@
         <span id="loadingIndicator" class="loading hidden">
           <span class="spinner" aria-hidden="true"></span> Memproses&hellip;
         </span>
+        <a id="downloadLink" class="text-btn hidden" download>&#8595; Unduh hasil</a>
       </div>
     </section>
 
   </main>
+
+  <!-- ============================================= -->
+  <!-- LANGKAH 3: IMAGE CRYPTO VISUALIZATION          -->
+  <!-- ============================================= -->
+  <section class="panel image-demo" id="imageDemo" aria-labelledby="imageDemoTitle">
+    <h2 class="panel-title" id="imageDemoTitle">3. Image Crypto Visualization</h2>
+    <p class="demo-note">
+      Bandingkan gambar asli dengan hasil AES&#8209;ECB dan AES&#8209;GCM. Gambar dan kata sandi
+      <strong>dikirim ke backend</strong> untuk dienkripsi. AES&#8209;ECB di sini hanya untuk
+      <strong>demo</strong> kelemahan mode ECB &mdash; jangan dipakai untuk pengamanan data sungguhan.
+    </p>
+
+    <div id="imgAlert" class="alert hidden" role="alert"></div>
+
+    <div class="image-demo-controls">
+      <label class="dropzone" id="imgDropzone" for="imgFileInput">
+        <svg viewBox="0 0 24 24" width="28" height="28" class="dropzone-icon">
+          <path d="M4 5h16v14H4V5Zm0 11 4-4 3 3 4-5 5 6"
+                fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="dropzone-label" id="imgDropzoneLabel">Klik atau seret gambar ke sini</span>
+        <span class="dropzone-hint">PNG, JPG, BMP, GIF, atau WebP</span>
+        <input type="file" id="imgFileInput" accept="image/*" hidden />
+      </label>
+
+      <div>
+        <div class="field">
+          <label for="imgPasswordInput">Kata sandi</label>
+          <div class="password-row">
+            <input type="password" id="imgPasswordInput" placeholder="Kata sandi untuk demo" autocomplete="new-password" />
+            <button type="button" id="btnToggleImgPw" class="icon-btn" aria-label="Tampilkan kata sandi">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button id="btnCompareImage" class="btn btn-primary btn-block">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          Compare / Encrypt Image
+        </button>
+      </div>
+    </div>
+
+    <p class="status-line" id="imgStatusLine">Menunggu gambar dipilih&hellip;</p>
+
+    <div class="compare-grid" id="compareGrid">
+      <figure class="compare-card">
+        <figcaption>Original</figcaption>
+        <div class="compare-frame" id="frameOriginal">
+          <img id="imgOriginal" alt="Gambar asli" />
+          <span class="compare-placeholder">Belum ada gambar</span>
+        </div>
+        <p class="compare-meta" id="metaOriginal">&nbsp;</p>
+      </figure>
+
+      <figure class="compare-card">
+        <figcaption>AES-ECB</figcaption>
+        <div class="compare-frame" id="frameEcb">
+          <img id="imgEcb" alt="Gambar terenkripsi AES-ECB" />
+          <span class="compare-placeholder">Menunggu hasil</span>
+        </div>
+        <p class="compare-meta" id="metaEcb">&nbsp;</p>
+      </figure>
+
+      <figure class="compare-card">
+        <figcaption>AES-GCM</figcaption>
+        <div class="compare-frame" id="frameGcm">
+          <img id="imgGcm" alt="Gambar terenkripsi AES-GCM" />
+          <span class="compare-placeholder">Menunggu hasil</span>
+        </div>
+        <p class="compare-meta" id="metaGcm">&nbsp;</p>
+      </figure>
+    </div>
+  </section>
 
   <footer class="footer">
     <p>Dikerjakan untuk mata kuliah Keamanan Informasi &middot; Universitas Siliwangi</p>
