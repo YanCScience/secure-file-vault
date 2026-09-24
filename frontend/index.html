@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Secure File Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ============================================= -->
+  <!-- HEADER: dial vault jadi elemen visual utama    -->
+  <!-- ============================================= -->
+  <header class="hero">
+    <div class="dial" aria-hidden="true">
+      <svg viewBox="0 0 120 120" width="72" height="72">
+        <circle cx="60" cy="60" r="52" class="dial-ring-outer" />
+        <circle cx="60" cy="60" r="38" class="dial-ring-inner" />
+        <g class="dial-ticks">
+          <line x1="60" y1="8" x2="60" y2="18" />
+          <line x1="60" y1="102" x2="60" y2="112" />
+          <line x1="8" y1="60" x2="18" y2="60" />
+          <line x1="102" y1="60" x2="112" y2="60" />
+          <line x1="24.8" y1="24.8" x2="32" y2="32" />
+          <line x1="95.2" y1="95.2" x2="88" y2="88" />
+          <line x1="95.2" y1="24.8" x2="88" y2="32" />
+          <line x1="24.8" y1="95.2" x2="32" y2="88" />
+        </g>
+        <line x1="60" y1="60" x2="60" y2="30" class="dial-needle" />
+        <circle cx="60" cy="60" r="4" class="dial-hub" />
+      </svg>
+    </div>
+    <div class="hero-text">
+      <p class="kicker">Keamanan Informasi &middot; Proyek Enkripsi</p>
+      <h1>Secure File Vault</h1>
+      <p class="lede">Kunci file kamu pakai AES&#8209;256&#8209;GCM atau ChaCha20&#8209;Poly1305 sebelum dikirim atau disimpan &mdash; kata sandi gak pernah keluar dari browser kamu.</p>
+    </div>
+  </header>
+
+  <!-- ============================================= -->
+  <!-- ALERT: muncul di atas kalau ada error/sukses   -->
+  <!-- ============================================= -->
+  <div id="alertBox" class="alert hidden" role="alert"></div>
+
+  <!-- ============================================= -->
+  <!-- BODY: panel input (kiri) + console output(kanan)-->
+  <!-- ============================================= -->
+  <main class="grid">
+
+    <section class="panel">
+      <h2 class="panel-title">1. Siapkan berkas</h2>
+
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <svg viewBox="0 0 24 24" width="28" height="28" class="dropzone-icon">
+          <path d="M12 3v12M12 3l-4 4M12 3l4 4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"
+                fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="dropzone-label" id="dropzoneLabel">Klik atau seret berkas ke sini</span>
+        <span class="dropzone-hint">PDF, gambar, atau berkas lain</span>
+        <input type="file" id="fileInput" hidden />
+      </label>
+
+      <div class="field">
+        <label for="passwordInput">Kata sandi</label>
+        <div class="password-row">
+          <input
+            type="password"
+            id="passwordInput"
+            placeholder="Kata sandi rahasia kamu"
+            autocomplete="new-password"
+          />
+          <button type="button" id="btnTogglePw" class="icon-btn" aria-label="Tampilkan kata sandi">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnEncrypt" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          Kunci berkas
+        </button>
+        <button id="btnDecrypt" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M7 11V8a5 5 0 0 1 9.6-2M5 11h14v9H5v-9Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          Buka berkas
+        </button>
+      </div>
+
+      <p class="status-line" id="statusLine">Menunggu berkas dipilih&hellip;</p>
+    </section>
+
+    <section class="panel console">
+      <div class="console-titlebar">
+        <h2 class="panel-title">2. Hasil</h2>
+        <button id="btnCopy" class="text-btn">Salin</button>
+      </div>
+      <textarea
+        id="outputText"
+        class="console-output"
+        readonly
+        placeholder="Hasil enkripsi atau dekripsi akan tampil di sini, dalam format Base64."
+      ></textarea>
+      <div class="console-footer">
+        <span id="loadingIndicator" class="loading hidden">
+          <span class="spinner" aria-hidden="true"></span> Memproses&hellip;
+        </span>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Dikerjakan untuk mata kuliah Keamanan Informasi &middot; Universitas Siliwangi</p>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
