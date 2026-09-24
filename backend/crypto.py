@@ -1,68 +1,88 @@
 import base64
-from Crypto.Cipher import AES
+import os
+from Crypto.Cipher import AES, ChaCha20_Poly1305
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Hash import SHA256
 from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad, unpad
 
-def derive_key(password: str, salt: bytes) -> bytes:
-    """Menurunkan kata sandi menjadi kunci AES 256-bit menggunakan PBKDF2."""
-    return PBKDF2(password, salt, dkLen=32, count=100000, hmac_hash_module=SHA256)
+DEFAULT_ITERATIONS = 600000
 
-def encrypt_file_gcm(data: bytes, password: str) -> dict:
-    """Enkripsi standar berkas/teks menggunakan AES-256-GCM (Fitur Wajib)."""
-    salt = get_random_bytes(16)
-    key = derive_key(password, salt)
-    cipher = AES.new(key, AES.MODE_GCM)
-    ciphertext, tag = cipher.encrypt_and_digest(data)
-    
-    return {
-        "salt": base64.b64encode(salt).decode('utf-8'),
-        "nonce": base64.b64encode(cipher.nonce).decode('utf-8'),
-        "ciphertext": base64.b64encode(ciphertext).decode('utf-8'),
-        "tag": base64.b64encode(tag).decode('utf-8')
-    }
+def derive_key(password: str, salt: bytes, iterations: int = DEFAULT_ITERATIONS) -> bytes:
+    """Menurunkan kunci 256-bit dari password menggunakan PBKDF2-HMAC-SHA256."""
+    return PBKDF2(password, salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
 
-def decrypt_file_gcm(encrypted_data: dict, password: str) -> bytes:
-    """Dekripsi berkas/teks dengan verifikasi tag AES-GCM (Fitur Wajib)."""
-    salt = base64.b64decode(encrypted_data["salt"])
-    nonce = base64.b64decode(encrypted_data["nonce"])
-    ciphertext = base64.b64decode(encrypted_data["ciphertext"])
-    tag = base64.b64decode(encrypted_data["tag"])
+def encrypt_data(data: bytes, password: str, algorithm: str = "aes-gcm", salt: bytes = None, nonce: bytes = None, iterations: int = DEFAULT_ITERATIONS) -> dict:
+    """Enkripsi data menggunakan AES-256-GCM atau ChaCha20-Poly1305"""
+    algo_clean = algorithm.lower().replace("_", "-")
+    if algo_clean not in ["aes-gcm", "chacha20-poly1305"]:
+        raise ValueError(f"Algoritma '{algorithm}' tidak valid. Pilih 'aes-gcm' atau 'chacha20-poly1305'.")
     
-    key = derive_key(password, salt)
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    if salt is None:
+        salt = get_random_bytes(16)
+
+    key = derive_key(password, salt, iterations)
+
+    if algo_clean == "aes-gcm":
+        if nonce is None:
+            nonce = get_random_bytes(12)
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+        else:
+            if nonce is None:
+                nonce = get_random_bytes(12)
+            cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+
+        ciphertext, tag = cipher.encrypt_and_digest(data)
+
+        return {
+            "algorithm": algo_clean,
+            "salt": base64.b64encode(salt).decode("utf-8"),
+            "nonce": base64.b64encode(nonce).decode("utf-8"),
+            "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
+            "tag": base64.b64encode(tag).decode("utf-8"),
+            "iterations": iterations
+        }
+
+def decrypt_data(data_dict: dict, password: str) -> bytes:
+    """Dekripsi data dengan berdasarkan kamus metadata yang dihasilkan oleh fungsi encrypt_data."""
+    algorithm = data_dict.get("algorithm", "aes-gcm").lower().replace("_", "-")
+    salt = base64.b64decode(data_dict["salt"])
+    nonce = base64.b64decode(data_dict["nonce"])
+    ciphertext = base64.b64decode(data_dict["ciphertext"])
+    tag = base64.b64decode(data_dict["tag"])
+    iterations = data_dict.get("iterations", DEFAULT_ITERATIONS)
     
-    # Otomatis melempar ValueError jika tag salah atau ciphertext diubah (tamper)
+    key = derive_key(password, salt, iterations)
+    
+    if algorithm == "aes-gcm":
+        cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)    
+    elif algorithm == "chacha20-poly1305":
+        cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+    else:
+        raise ValueError(f"Algoritma '{algorithm}' tidak valid.")
+    
     return cipher.decrypt_and_verify(ciphertext, tag)
 
-def encrypt_bmp_visual(bmp_bytes: bytes, password: str) -> dict:
-    """
-    Enkripsi Citra dengan memisahkan 54 byte header BMP (Fitur Pengayaan).
-    Mengembalikan dua citra: hasil mode ECB (pola terlihat) dan mode GCM (noise acak).
-    """
-    if len(bmp_bytes) <= 54:
+def encrypt_file_gcm(data: bytes, password: str, salt: bytes = None, nonce: bytes = None) -> dict:
+    return encrypt_data(data, password, algorithm="aes-gcm", salt=salt, nonce=nonce)
+
+def decrypt_file_gcm(data_dict: dict, password: str) -> bytes:
+    return decrypt_data(data_dict, password)
+
+def encrypt_bmp_ecb(bmp_bytes: bytes, password: str) -> bytes:
+    """Enkripsi piksel BMP dengan AES-ECB untuk visualisasi perbandingan (Header 54-byte tetap)."""
+    if len(bmp_bytes) < 54 or bmp_bytes[:2] != b'BM':
         raise ValueError("Ukuran berkas BMP tidak valid atau terlalu kecil.")
     
-    # 1. Pisahkan Header BMP (54 byte pertama) dari Piksel
     header = bmp_bytes[:54]
     pixels = bmp_bytes[54:]
     
-    salt = get_random_bytes(16)
-    key = derive_key(password, salt)
-    
-    # --- Mode 1: AES-ECB (Pembanding Visual) ---
-    padded_pixels = pad(pixels, AES.block_size)
-    cipher_ecb = AES.new(key, AES.MODE_ECB)
-    ecb_enc_pixels = cipher_ecb.encrypt(padded_pixels)[:len(pixels)]
-    ecb_bmp = header + ecb_enc_pixels
-    
-    # --- Mode 2: AES-256-GCM (Mode Aman) ---
-    cipher_gcm = AES.new(key, AES.MODE_GCM)
-    gcm_enc_pixels, _ = cipher_gcm.encrypt_and_digest(pixels)
-    gcm_bmp = header + gcm_enc_pixels
-    
-    return {
-        "ecb_image_base64": base64.b64encode(ecb_bmp).decode('utf-8'),
-        "gcm_image_base64": base64.b64encode(gcm_bmp).decode('utf-8')
-    }
+    padding_len = 16 - (len(pixels) % 16)
+    if padding_len != 16:
+        pixels += b"\x00" * padding_len
+
+    salt = b"DEMO_ECB_SALT123"
+    key = derive_key(password, salt, iterations=100000)
+    cipher = AES.new(key, AES.MODE_ECB)
+    encrypted_pixels = cipher.encrypt(pixels)
+
+    return header + encrypted_pixels[:len(bmp_bytes) - 54]
