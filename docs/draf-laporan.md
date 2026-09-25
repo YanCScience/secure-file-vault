@@ -1,3 +1,191 @@
+# Secure File Vault & Citra Visualizer (ECB vs GCM)
+## Laporan Tugas Proyek Aplikasi Kriptografi
+
+**Topik:** A — Aplikasi Enkripsi (Algoritma Modern)
+**Mata Kuliah:** Keamanan Informasi
+**Anggota:**
+1. Aisyah Nitiarahma (247006111073)
+2. Agniya Azzahra (247006111090)
+3. Diyani Rahayu Nur'aeni (247006111115)
+
+============================================================================
+
+## 1. Pendahuluan
+
+### 1.1 Latar Belakang
+
+Perlindungan data pribadi dan berkas sensitif menjadi kebutuhan mendasar di
+era digital, terutama ketika berkas seperti dokumen identitas, laporan
+keuangan, maupun data medis disimpan atau dikirim melalui media yang tidak
+sepenuhnya aman. Tanpa mekanisme enkripsi yang tepat, berkas-berkas
+tersebut rentan terhadap akses tidak sah, kebocoran data, maupun
+manipulasi oleh pihak yang tidak bertanggung jawab.
+
+Salah satu kesalahan umum dalam penerapan kriptografi adalah penggunaan
+mode operasi cipher blok yang tidak aman, seperti Electronic Code Book
+(ECB). Menurut Dworkin (2007), mode ECB memiliki kelemahan mendasar
+karena setiap blok plainteks yang identik akan selalu menghasilkan blok
+cipherteks yang identik pula, sehingga pola pada data asli dapat
+"membayang" pada hasil enkripsinya. Kelemahan ini dapat dieksploitasi
+untuk menganalisis struktur data tanpa perlu memecahkan kuncinya
+(Stallings, 2017).
+
+Berdasarkan permasalahan tersebut, proyek ini mengembangkan **Secure File
+Vault**, sebuah aplikasi web untuk mengenkripsi dan mendekripsi berkas
+menggunakan algoritma AES-256-GCM (Galois/Counter Mode) — sebuah mode
+operasi modern yang menyediakan *authenticated encryption*, sehingga
+tidak hanya merahasiakan data tetapi juga menjamin integritas dan
+keasliannya (Dworkin, 2007). Pendekatan ini sejalan dengan penelitian
+Hernandi dan Chandra (2024) yang menerapkan AES-256 dan AES-GCM untuk
+mengamankan dokumen rekam medis, serta penelitian Zulian dkk. (2025) yang
+menunjukkan keunggulan mode *authenticated encryption* berbasis GCM
+dibanding pendekatan konvensional. Kunci enkripsi diturunkan dari kata
+sandi pengguna menggunakan PBKDF2 dengan jumlah iterasi tinggi (600.000
+iterasi) mengikuti rekomendasi Moriarty dkk. (2017) dan Sönmez Turan dkk.
+(2010) untuk memperkuat ketahanan terhadap serangan *brute-force*. Sebagai
+pembanding edukatif, aplikasi ini juga menyediakan fitur visualisasi yang
+membandingkan hasil enkripsi mode ECB (tidak aman) dengan mode GCM (aman)
+pada citra digital, guna menunjukkan secara konkret mengapa pemilihan
+mode operasi yang tepat sangat penting dalam kriptografi modern.
+
+### 1.2 Rumusan Masalah
+
+Berdasarkan latar belakang di atas, rumusan masalah dalam proyek ini
+adalah sebagai berikut:
+
+1. Bagaimana merancang dan mengimplementasikan aplikasi enkripsi berkas
+   yang aman menggunakan algoritma AES-256-GCM dengan penurunan kunci
+   berbasis kata sandi (PBKDF2)?
+2. Bagaimana aplikasi dapat menjamin integritas data, yaitu menolak proses
+   dekripsi apabila kata sandi yang dimasukkan salah atau cipherteks telah
+   dimodifikasi?
+3. Seberapa baik kinerja algoritma yang diimplementasikan dilihat dari
+   aspek waktu eksekusi, avalanche effect, dan entropi cipherteks?
+4. Bagaimana perbedaan karakteristik keamanan antara mode operasi ECB
+   yang rentan dengan mode GCM yang aman dapat divisualisasikan secara
+   nyata kepada pengguna?
+
+### 1.3 Tujuan
+
+Proyek ini bertujuan untuk:
+
+1. Mengimplementasikan aplikasi web *Secure File Vault* yang mampu
+   mengenkripsi dan mendekripsi berkas (dokumen, gambar, dan teks)
+   menggunakan algoritma AES-256-GCM dengan kunci yang diturunkan dari
+   kata sandi pengguna melalui PBKDF2.
+2. Menerapkan mekanisme *authenticated encryption* yang menolak dekripsi
+   apabila kata sandi salah atau cipherteks telah dimanipulasi.
+3. Melakukan pengujian kuantitatif terhadap aplikasi meliputi kebenaran
+   dekripsi pada berbagai jenis dan ukuran berkas, waktu eksekusi,
+   avalanche effect, serta entropi dan distribusi byte cipherteks.
+4. Memberikan visualisasi perbandingan antara mode ECB dan mode GCM pada
+   citra digital sebagai bukti empiris mengapa mode ECB tidak layak
+   digunakan untuk keamanan data sesungguhnya.
+
+============================================================================
+
+## 2. Dasar Teori
+
+### 2.1 AES-256-GCM (Galois/Counter Mode)
+
+Advanced Encryption Standard (AES) adalah algoritma cipher blok simetris
+dengan ukuran blok 128 bit dan mendukung panjang kunci 128, 192, atau 256
+bit. Pada proyek ini digunakan kunci 256 bit (AES-256) untuk memberikan
+margin keamanan maksimum sesuai standar NIST.
+
+Galois/Counter Mode (GCM) adalah mode operasi yang menggabungkan mode
+Counter (CTR) untuk enkripsi dengan fungsi GHASH berbasis aritmetika Galois
+Field GF(2¹²⁸) untuk autentikasi, sehingga menghasilkan *Authenticated
+Encryption with Associated Data* (AEAD) (Dworkin, 2007). Proses enkripsi
+tiap blok plainteks P dirumuskan sebagai:
+C_i = P_i ⊕ E_K(J_i)
+
+dengan `C_i` adalah blok cipherteks ke-i, `E_K` adalah fungsi enkripsi AES
+dengan kunci K, dan `J_i` adalah nilai *counter block* ke-i yang berasal
+dari nonce. Selain menghasilkan cipherteks, GCM juga menghasilkan
+*authentication tag* T melalui fungsi GHASH yang memproses cipherteks dan
+data tambahan (*additional authenticated data*), sehingga penerima dapat
+memverifikasi bahwa data tidak diubah dan berasal dari pihak yang memiliki
+kunci yang benar (Dworkin, 2007).
+
+Dalam implementasi (`backend/crypto.py`), setiap proses enkripsi
+membangkitkan **nonce acak 12 byte (96 bit)** menggunakan
+`get_random_bytes()`, sesuai rekomendasi ukuran nonce standar untuk GCM.
+Nonce dan *authentication tag* (16 byte) disimpan bersama cipherteks agar
+dapat digunakan kembali saat proses dekripsi dan verifikasi.
+
+### 2.2 Penurunan Kunci dengan PBKDF2-HMAC-SHA256
+
+Karena pengguna memasukkan kata sandi berupa teks, kata sandi tersebut
+tidak dapat langsung digunakan sebagai kunci AES 256-bit. Password-Based
+Key Derivation Function 2 (PBKDF2) digunakan untuk menurunkan kunci
+kriptografis dari kata sandi secara aman (Moriarty dkk., 2017):
+DK = PBKDF2(PRF, Password, Salt, c, dkLen)
+
+dengan `PRF` adalah fungsi pseudo-acak (pada implementasi ini HMAC-SHA256),
+`Salt` adalah nilai acak untuk mencegah serangan *rainbow table*, `c`
+adalah jumlah iterasi, dan `dkLen` adalah panjang kunci turunan yang
+diinginkan dalam byte.
+
+Implementasi pada `backend/crypto.py` menggunakan parameter berikut:
+
+| Parameter | Nilai |
+|---|---|
+| Fungsi PRF | HMAC-SHA256 |
+| Panjang salt | 16 byte (128 bit), dibangkitkan acak per berkas |
+| Panjang kunci turunan (dkLen) | 32 byte (256 bit) |
+| Jumlah iterasi (c) | 600.000 |
+
+Jumlah iterasi yang tinggi dipilih mengikuti rekomendasi keamanan modern
+(Sönmez Turan dkk., 2010) agar proses menebak kata sandi secara
+*brute-force* menjadi jauh lebih lambat, karena setiap percobaan kata
+sandi memerlukan 600.000 kali komputasi HMAC-SHA256 sebelum kunci dapat
+diuji terhadap cipherteks.
+
+### 2.3 ChaCha20-Poly1305 sebagai Algoritma Pembanding
+
+Selain AES-256-GCM, aplikasi juga mendukung ChaCha20-Poly1305, sebuah
+skema AEAD berbasis *stream cipher* ChaCha20 yang dikombinasikan dengan
+fungsi autentikasi Poly1305 (Nir & Langley, 2018). Berbeda dengan AES yang
+merupakan cipher blok dan memanfaatkan instruksi perangkat keras khusus
+(AES-NI) untuk kecepatan, ChaCha20 dirancang agar efisien dijalankan
+murni secara perangkat lunak, sehingga sering digunakan sebagai alternatif
+pada perangkat tanpa akselerasi AES. Kedua algoritma sama-sama tergolong
+AEAD modern dan direkomendasikan untuk menggantikan mode-mode lama yang
+tidak menyediakan autentikasi, seperti AES-CBC atau AES-ECB.
+
+### 2.4 Avalanche Effect
+
+Avalanche effect adalah properti yang diharapkan dari algoritma
+kriptografi yang baik: perubahan sekecil satu bit pada plainteks atau
+kunci seharusnya mengakibatkan perubahan besar dan tidak dapat diprediksi
+pada cipherteks yang dihasilkan (Stallings, 2017). Secara matematis,
+persentase avalanche effect dihitung sebagai:
+Avalanche Effect (%) = (jumlah bit berbeda antara C1 dan C2 / total bit cipherteks) × 100%
+
+dengan `C1` adalah cipherteks dari input asli dan `C2` adalah cipherteks
+dari input yang telah diubah satu bit. Algoritma dikatakan memiliki difusi
+yang baik apabila nilai avalanche effect mendekati 50%, karena itu berarti
+perubahan kecil pada input menghasilkan perubahan yang secara statistik
+setara dengan pembalikan bit acak pada cipherteks.
+
+### 2.5 Entropi Shannon
+
+Entropi Shannon digunakan untuk mengukur tingkat ketidakpastian atau
+keacakan suatu data (Shannon, 1948). Untuk data byte (rentang nilai
+0–255), entropi dihitung dengan rumus:
+H(X) = − Σ [ p(xᵢ) × log₂ p(xᵢ) ] , untuk i = 0 sampai 255
+
+dengan `p(xᵢ)` adalah probabilitas kemunculan nilai byte `xᵢ` dalam data.
+Nilai entropi berkisar antara 0 (data sepenuhnya dapat diprediksi, misalnya
+seluruh byte bernilai sama) hingga 8 bit (data sepenuhnya acak dan setiap
+nilai byte 0–255 muncul dengan probabilitas yang sama). Cipherteks yang
+aman idealnya memiliki entropi mendekati 8, karena hal ini menunjukkan
+bahwa cipherteks secara statistik tidak dapat dibedakan dari derau acak
+dan tidak membocorkan pola dari plainteks aslinya.
+
+============================================================================
+
 ## HASIL DAN PEMBAHASAN
 
 ### 1. Hasil Pengujian Kinerja Enkripsi/Dekripsi
