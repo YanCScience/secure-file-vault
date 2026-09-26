@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Custom ignore untuk proyek Secure File Vault
+*.svault
+*.xlsx
+tests/data/sample_10mb.txt
+tests/data/sample_1mb.txt

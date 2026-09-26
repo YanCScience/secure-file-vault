@@ -21,7 +21,7 @@ def keterangan(entropi: float) -> str:
 if not CSV_PATH.exists():
     CSV_PATH = ROOT / "tests" / "hasil_pengujian_kriptografi.csv"
 
-with open(CSV_PATH, newline="", encoding="utf-8") as f:
+with open(CSV_PATH, newline="", encoding="utf-8-sig") as f:
     reader = csv.DictReader(f)
     rows = list(reader)
 
@@ -30,9 +30,9 @@ ws = wb.active
 ws.title = "Hasil Pengujian"
 
 headers = [
-    "Nama Berkas / Skenario", "Ukuran (Bytes)", "Waktu Enkripsi (ms)",
+    "Nama Berkas","Algoritma", "Ukuran (byte)", "Waktu Enkripsi (ms)",
     "Waktu Dekripsi (ms)", "Entropi Plaintext", "Entropi Ciphertext", 
-    "Avalanche Effect (%)", "Keterangan"
+    "Avalanche Effect (%)", "Dekripsi Identik", "Keterangan"
 ]
 ws.append(headers)
 
@@ -44,22 +44,17 @@ for cell in ws[1]:
     cell.alignment = Alignment(horizontal="center")
 
 for row in rows:
-    nama = row.get("Nama Berkas / Skenario") or row.get("Nama Berkas", "Unknown")
-    ukuran = int(row.get("Ukuran (Bytes)") or row.get("Ukuran Berkas (byte)", 0))
-    enc_time = float(row.get("Waktu Enkripsi (ms)", 0.0))
-    dec_time = float(row.get("Waktu Dekripsi (ms)", 0.0))
-    pt_entropy = float(row.get("Entropi Plaintext") or row.get("Entropi Plainteks", 0.0))
-    ct_entropy = float(row.get("Entropi Ciphertext") or row.get("Entropi Cipherteks", 0.0))
-    avalanche = float(row.get("Avalanche Effect (%)", 0.0))
-    
+    ct_entropy = float(row.get("Entropi Ciphertext", 0.0))
     ws.append([
-        nama,
-        ukuran,
-        enc_time,
-        dec_time,
-        pt_entropy,
+        row.get("Nama Berkas", ""),
+        row.get("Algoritma", ""),
+        int(row.get("Ukuran Berkas (byte)", 0)),
+        float(row.get("Waktu Enkripsi (ms)", 0.0)),
+        float(row.get("Waktu Dekripsi (ms)", 0.0)),
+        float(row.get("Entropi Plaintext", 0.0)),
         ct_entropy,
-        avalanche,
+        float(row.get("Avalanche Effect (%)", 0.0)),
+        row.get("Dekripsi Identik", "Ya"),
         keterangan(ct_entropy),
     ])
 
@@ -72,11 +67,11 @@ chart = BarChart()
 chart.title = "Waktu Enkripsi vs Dekripsi per Skenario"
 chart.y_axis.title = "Waktu (ms)"
 chart.x_axis.title = "Skenario"
-data = Reference(ws, min_col=3, max_col=4, min_row=1, max_row=ws.max_row)
+data = Reference(ws, min_col=4, max_col=5, min_row=1, max_row=ws.max_row)
 cats = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
 chart.add_data(data, titles_from_data=True)
 chart.set_categories(cats)
-ws.add_chart(chart, "J2")
+ws.add_chart(chart, "L2")
 
 wb.save(OUT_PATH)
-print(f"Selesai: Berkas Excel berhasil disimpan di: {OUT_PATH}")
+print(f"Selesai: Berkas Excel berhasil disimpan di {OUT_PATH}")

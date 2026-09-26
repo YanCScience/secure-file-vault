@@ -5,33 +5,34 @@ import time
 import base64
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from backend.crypto import encrypt_file_gcm, decrypt_file_gcm, derive_key
+from backend.crypto import derive_key, encrypt_data, decrypt_data
 from backend.metrics import calculate_entropy, calculate_avalanche_effect
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, ChaCha20_Poly1305
 
-def encrypt_with_fixed_nonce(data: bytes, password: str, salt: bytes, nonce: bytes) -> bytes:
-    """Fungsi pembantu untuk mengunci Salt & Nonce agar pengujian Avalanche Effect valid."""
+def encrypt_fixed_gcm(data: bytes, password: str, salt: bytes, nonce: bytes) -> bytes:
     key = derive_key(password, salt)
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
     ciphertext, _ = cipher.encrypt_and_digest(data)
     return ciphertext    
 
+def encrypt_fixed_chacha(data: bytes, password: str, salt: bytes, nonce: bytes) -> bytes:
+    key = derive_key(password, salt)
+    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+    ciphertext, _ = cipher.encrypt_and_digest(data)
+    return ciphertext
+
 def run_csv_export():
     csv_file = "hasil_pengujian_kriptografi.csv"
-    base_dir = os.path.dirname(__file__)
-    data_dir = os.path.join(base_dir, "data")
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
     
-    file_to_test = [
-        ("File Teks (1 KB)", os.path.join(data_dir, "sample_1kb.txt")),
-        ("File Teks (100 KB)", os.path.join(data_dir, "sample_100kb.txt")),
-        ("File Teks (1 MB)", os.path.join(data_dir, "sample_1mb.txt")),
-        ("File Teks (10 MB)", os.path.join(data_dir, "sample_10mb.txt")),
-        ("File PDF", os.path.join(data_dir, "sample.pdf")),
-        ("Gambar Uncompressed BMP", os.path.join(data_dir, "sample.bmp")),
-        ("Gambar Compressed PNG", os.path.join(data_dir, "sample.png")),
-        ("File Struktur Data JSON", os.path.join(data_dir, "sample.json")),
-        ("Simulasi Cipherteks Rusak (1-Byte Corrupt)", os.path.join(data_dir, "sample.pdf")),
-        ("Simulasi Bit-Flip Kunci (Avalanche Test)", os.path.join(data_dir, "sample_1mb.txt"))
+    files = [
+        ("File Teks 1 KB", os.path.join(data_dir, "sample_1kb.txt")),
+        ("File Teks 1 MB", os.path.join(data_dir, "sample_1mb.txt")),
+        ("File Teks 10 MB", os.path.join(data_dir, "sample_10mb.txt")),
+        ("Dokumen PDF", os.path.join(data_dir, "sample.pdf")),
+        ("Gambar BMP", os.path.join(data_dir, "sample.bmp")),
+        ("Gambar JPG", os.path.join(data_dir, "sample.jpg")),
+        ("Gambar PNG", os.path.join(data_dir, "sample.png"))
     ]
     
     password1 = "SandiUjiLaporan123"
@@ -39,59 +40,62 @@ def run_csv_export():
 
     results = []
 
-    for name, filepath in file_to_test:
+    for name, filepath in files:
         if not os.path.exists(filepath):
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            with open(filepath, "wb") as f_temp:
-                f_temp.write(b"Sampel data untuk pengujian kriptografi. " * 100)
+            print(f"File tidak ditemukan: {filepath}")
+            continue
 
         with open(filepath, "rb") as f:
             data = f.read()
 
         pt_entropy = calculate_entropy(data)
 
-        start_enc = time.time()
-        enc = encrypt_file_gcm(data, password1)
-        enc_time = (time.time() - start_enc) * 1000
+        algos = [
+            ("AES-256-GCM", "aes-gcm"),
+            ("ChaCha20-Poly1305", "chacha20-poly1305")
+        ]
 
-        start_dec = time.time()
-        dec = decrypt_file_gcm(enc, password1)
-        dec_time = (time.time() - start_dec) * 1000
+        for algo_display, algo_name in algos:
+            t0 = time.perf_counter()
+            enc = encrypt_data(data, password1, algorithm=algo_name)
+            enc_time = (time.perf_counter() - t0) * 1000
 
-        c1_bytes = base64.b64decode(enc["ciphertext"])
-        ct_entropy = calculate_entropy(c1_bytes)
+            t1 = time.perf_counter()
+            dec_data = decrypt_data(enc, password1)
+            dec_time = (time.perf_counter() - t1) * 1000
 
-        salt = base64.b64decode(enc["salt"])
-        nonce = base64.b64decode(enc["nonce"])
+            salt = base64.b64decode(enc["salt"])
+            nonce = base64.b64decode(enc["nonce"])
 
-        c1_fixed = encrypt_with_fixed_nonce(data, password1, salt, nonce)
-        c2_fixed = encrypt_with_fixed_nonce(data, password2, salt, nonce)
-        avalanche_effect = calculate_avalanche_effect(c1_fixed, c2_fixed)
+            if algo_name == "aes-gcm":
+                c1 = encrypt_fixed_gcm(data, password1, salt, nonce)
+                c2 = encrypt_fixed_gcm(data, password2, salt, nonce)
+            else:
+                c1 = encrypt_fixed_chacha(data, password1, salt, nonce)
+                c2 = encrypt_fixed_chacha(data, password2, salt, nonce)
 
-        results.append([
-            name,
-            len(data),
-            round(enc_time, 2),
-            round(dec_time, 2),
-            round(pt_entropy, 4),
-            round(ct_entropy, 4),
-            round(avalanche_effect, 2)
-        ])
+            ct_entropy = calculate_entropy(c1)
+            avalanche_effect = calculate_avalanche_effect(c1, c2)
+            dec_identical = "Ya" if dec_data == data else "Tidak"
 
-    with open(csv_file, mode="w", newline="", encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "Nama Berkas",
-            "Ukuran Berkas (byte)",
-            "Waktu Enkripsi (ms)",
-            "Waktu Dekripsi (ms)",
-            "Entropi Plaintext",
-            "Entropi Ciphertext",
-            "Avalanche Effect (%)"
-        ])
+            results.append({
+                "Nama Berkas": name,
+                "Algoritma": algo_display,
+                "Ukuran Berkas (byte)": len(data),
+                "Waktu Enkripsi (ms)": round(enc_time, 2),
+                "Waktu Dekripsi (ms)": round(dec_time, 2),
+                "Entropi Plaintext": round(pt_entropy, 4),
+                "Entropi Ciphertext": round(ct_entropy, 4),
+                "Avalanche Effect (%)": round(avalanche_effect, 2),
+                "Dekripsi Identik": dec_identical
+            })
+
+    with open(csv_file, mode="w", newline="", encoding='utf-8-sig') as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
         writer.writerows(results)
 
-    print(f"Pengujian selesai. Hasil diekspor ke {csv_file}")
+    print(f"Berhasil mengekspor {len(results)} baris hasil pengujian ke '{csv_file}")
 
 if __name__ == "__main__":
     run_csv_export()    
