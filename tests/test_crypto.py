@@ -41,9 +41,8 @@ def test_decryption_tampered_ciphertext():
     data = b"Dokumen PDF Penting"
     enc_result = encrypt_file_gcm(data, "sandi123")
     
-    # Ubah 1 byte pada ciphertext
     raw_cipher = bytearray(base64.b64decode(enc_result["ciphertext"]))
-    raw_cipher[0] ^= 0xFF # Flip bit byte pertama
+    raw_cipher[0] ^= 0xFF 
     tampered_cipher_b64 = base64.b64encode(bytes(raw_cipher)).decode('utf-8')
     
     data_dict = {
@@ -64,4 +63,4 @@ def test_bmp_header_preservation():
     
     assert ecb_bmp[:54] == dummy_header
     assert len(ecb_bmp) == len(dummy_bmp)
-    assert gcm_bmp[:54] != dummy_bmp[54:]
+    assert ecb_bmp[54:] != dummy_bmp[54:]
