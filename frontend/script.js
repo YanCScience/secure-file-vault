@@ -6,7 +6,7 @@
 // PENJELASAN ALUR:
 // -----------------
 // ENKRIPSI:
-//   1. User pilih file asli + isi password
+//   1. User pilih file asli + isi password + pilih algoritma
 //   2. Dikirim ke POST /api/encrypt-file (multipart: file, password, algorithm)
 //   3. Backend balikin JSON: { algorithm, salt, nonce, ciphertext, tag, iterations, filename }
 //      (semua field selain "filename" & "iterations" itu base64 text)
@@ -23,12 +23,15 @@
 //      (bytes mentah, bukan JSON) -> otomatis di-download dengan nama file aslinya
 //   5. Kalau password salah / data diutak-atik -> backend menolak (auth tag GCM gagal)
 //
+//   Catatan: algoritma untuk dekripsi TIDAK diambil dari dropdown, melainkan dari
+//   field "algorithm" yang tersimpan di dalam berkas .svault itu sendiri, karena
+//   itulah algoritma yang benar-benar dipakai saat berkas itu dienkripsi.
+//
 // =========================================================
 
 const API_BASE_URL = "http://localhost:8000";
 const API_ENCRYPT_URL = API_BASE_URL + "/api/encrypt-file";
 const API_DECRYPT_URL = API_BASE_URL + "/api/decrypt-file";
-const ALGORITMA_DEFAULT = "aes-gcm"; // pilihan lain: "chacha20-poly1305"
 
 // Ambil semua elemen HTML yang kepake
 const dropzone = document.getElementById("dropzone");
@@ -36,6 +39,7 @@ const dropzoneLabel = document.getElementById("dropzoneLabel");
 const fileInput = document.getElementById("fileInput");
 const passwordInput = document.getElementById("passwordInput");
 const btnTogglePw = document.getElementById("btnTogglePw");
+const algorithmSelect = document.getElementById("algorithmSelect"); // dropdown pilihan algoritma
 const btnEncrypt = document.getElementById("btnEncrypt");
 const btnDecrypt = document.getElementById("btnDecrypt");
 const btnCopy = document.getElementById("btnCopy");
@@ -50,12 +54,21 @@ const downloadLink = document.getElementById("downloadLink");
 // FUNGSI BANTUAN: alert & loading
 // =========================================================
 
+let timeoutAlert;
+
 function tampilkanAlert(pesan, jenis) {
+  clearTimeout(timeoutAlert);
+
   alertBox.textContent = pesan;
   alertBox.className = "alert alert-" + jenis;
+
+  timeoutAlert = setTimeout(() => {
+    sembunyikanAlert();
+  }, 4000);
 }
 
 function sembunyikanAlert() {
+  clearTimeout(timeoutAlert);
   alertBox.className = "alert hidden";
 }
 
@@ -187,7 +200,7 @@ async function prosesEnkripsi() {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("password", password);
-  formData.append("algorithm", ALGORITMA_DEFAULT);
+  formData.append("algorithm", algorithmSelect.value);
 
   tampilkanLoading();
   statusLine.textContent = "Mengunci berkas\u2026";
@@ -222,6 +235,11 @@ async function prosesEnkripsi() {
       "success"
     );
     statusLine.textContent = "Selesai. Berkas .svault siap diunduh.";
+
+    // Reset form biar siap dipakai lagi (dulu masih nyisain nama file & password lama)
+    fileInput.value = "";
+    passwordInput.value = "";
+    dropzoneLabel.textContent = "Klik atau seret berkas ke sini";
 
   } catch (error) {
     console.error(error);
@@ -310,6 +328,11 @@ async function prosesDekripsi() {
     );
     statusLine.textContent = "Selesai. Berkas asli siap diunduh.";
 
+    // Reset form biar siap dipakai lagi (dulu masih nyisain nama file & password lama)
+    fileInput.value = "";
+    passwordInput.value = "";
+    dropzoneLabel.textContent = "Klik atau seret berkas ke sini";
+
   } catch (error) {
     console.error(error);
     tampilkanAlert("Gagal terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", "error");
@@ -381,15 +404,23 @@ btnCopy.addEventListener("click", () => {
   let objectUrls = []; // blob URL aktif, di-revoke sebelum render ulang
 
   // ---------- alert & status (gaya sama dengan alert utama) ----------
-  function tampilkanAlertGambar(pesan, jenis) {
-    imgAlert.textContent = pesan;
-    imgAlert.className = "alert alert-" + jenis;
-  }
+  let timeoutAlertGambar;
 
-  function sembunyikanAlertGambar() {
-    imgAlert.className = "alert hidden";
-  }
+function tampilkanAlertGambar(pesan, jenis) {
+  clearTimeout(timeoutAlertGambar);
 
+  imgAlert.textContent = pesan;
+  imgAlert.className = "alert alert-" + jenis;
+
+  timeoutAlertGambar = setTimeout(() => {
+    sembunyikanAlertGambar();
+  }, 4000);
+}
+
+function sembunyikanAlertGambar() {
+  clearTimeout(timeoutAlertGambar);
+  imgAlert.className = "alert hidden";
+}
   function setBusy(busy) {
     btnCompareImage.disabled = busy;
   }
@@ -652,4 +683,5 @@ btnCopy.addEventListener("click", () => {
   }
 
   btnCompareImage.addEventListener("click", bandingkanGambar);
+  
 })();
