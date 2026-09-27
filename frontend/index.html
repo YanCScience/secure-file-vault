@@ -8,49 +8,118 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
+<script>
+  try {
+    if (localStorage.getItem("sfv-theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) { /* localStorage diblokir -- lanjut pakai tema default */ }
+</script>
 </head>
 <body>
 
-<div class="wrap">
-
-  <!-- ============================================= -->
-  <!-- HEADER: dial vault jadi elemen visual utama    -->
-  <!-- ============================================= -->
-  <header class="hero">
-    <div class="dial" aria-hidden="true">
-      <svg viewBox="0 0 120 120" width="72" height="72">
-        <circle cx="60" cy="60" r="52" class="dial-ring-outer" />
-        <circle cx="60" cy="60" r="38" class="dial-ring-inner" />
-        <g class="dial-ticks">
-          <line x1="60" y1="8" x2="60" y2="18" />
-          <line x1="60" y1="102" x2="60" y2="112" />
-          <line x1="8" y1="60" x2="18" y2="60" />
-          <line x1="102" y1="60" x2="112" y2="60" />
-          <line x1="24.8" y1="24.8" x2="32" y2="32" />
-          <line x1="95.2" y1="95.2" x2="88" y2="88" />
-          <line x1="95.2" y1="24.8" x2="88" y2="32" />
-          <line x1="24.8" y1="95.2" x2="32" y2="88" />
-        </g>
-        <line x1="60" y1="60" x2="60" y2="30" class="dial-needle" />
-        <circle cx="60" cy="60" r="4" class="dial-hub" />
-      </svg>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="#top" class="brand">Secure<span class="brand-accent">Vault</span></a>
+    <div class="nav-links">
+      <a href="#fitur">Fitur</a>
+      <a href="#enkripsi">Enkripsi</a>
+      <a href="#demo-citra">Visualisasi Enkripsi</a>
     </div>
-    <div class="hero-text">
-      <p class="kicker">Keamanan Informasi &middot; Proyek Enkripsi</p>
-      <h1>Secure File Vault</h1>
-      <p class="lede">Kunci file kamu pakai AES&#8209;256&#8209;GCM atau ChaCha20&#8209;Poly1305 sebelum dikirim atau disimpan &mdash; pemrosesan dilakukan di backend, jadi kata sandi dikirim ke API server.</p>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Ganti mode terang/gelap" title="Ganti mode terang/gelap">
+      <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <line x1="12" y1="1.5" x2="12" y2="4"/>
+          <line x1="12" y1="20" x2="12" y2="22.5"/>
+          <line x1="1.5" y1="12" x2="4" y2="12"/>
+          <line x1="20" y1="12" x2="22.5" y2="12"/>
+          <line x1="4.2" y1="4.2" x2="5.9" y2="5.9"/>
+          <line x1="18.1" y1="18.1" x2="19.8" y2="19.8"/>
+          <line x1="4.2" y1="19.8" x2="5.9" y2="18.1"/>
+          <line x1="18.1" y1="5.9" x2="19.8" y2="4.2"/>
+        </g>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<div id="top" class="wrap">
+
+  <header class="hero-wrap" id="heroWrap">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="hero-inner" id="heroInner">
+      <p class="badge-row"><span class="badge-dot" aria-hidden="true"></span>Keamanan Kriptografi Tingkat Lanjut</p>
+      <h1>Kunci berkasmu, <span class="grad">bukan kepercayaanmu.</span></h1>
+      <p class="lede">AES&#8209;256&#8209;GCM dan ChaCha20&#8209;Poly1305 mengenkripsi berkasmu secara utuh &mdash; lihat juga demonstrasi kenapa mode ECB gagal menyembunyikan pola gambar, sementara GCM tidak.</p>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-item">
+        <p class="num">256-bit</p>
+        <p class="lbl">Kunci AES</p>
+      </div>
+      <div class="stat-item">
+        <p class="num">600.000&times;</p>
+        <p class="lbl">Iterasi PBKDF2</p>
+      </div>
+      <div class="stat-item">
+        <p class="num">2</p>
+        <p class="lbl">Algoritma AEAD</p>
+      </div>
+      <div class="stat-item">
+        <p class="num">0</p>
+        <p class="lbl">Password tersimpan</p>
+      </div>
     </div>
   </header>
 
-  <!-- ============================================= -->
-  <!-- ALERT: muncul di atas kalau ada error/sukses   -->
-  <!-- ============================================= -->
+  <section class="section-wrap reveal" id="fitur">
+    <div class="section-head">
+      <p class="kicker-2">Bagaimana keamanannya bekerja</p>
+      <h2>Bukan enkripsi biasa</h2>
+      <p class="section-sub">Arahkan kursor ke salah satu kartu untuk melihat detail lapisan keamanan yang dipakai. Setiap lapisan dirancang supaya berkasmu tetap aman, bahkan kalau berkas &#8220;.svault&#8221;-nya bocor.</p>
+    </div>
+    <div class="feature-grid" id="featureGrid">
+      <div class="feature-card">
+        <span class="feature-icon">AES</span>
+        <h3>AES-256-GCM</h3>
+        <p>Mode authenticated encryption &mdash; mendeteksi kalau ciphertext diubah sedikit pun.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">CC20</span>
+        <h3>ChaCha20-Poly1305</h3>
+        <p>Alternatif cepat dan aman, cocok untuk perangkat tanpa akselerasi AES.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">KDF</span>
+        <h3>PBKDF2 600rb iterasi</h3>
+        <p>Password diturunkan jadi kunci lewat ratusan ribu putaran hashing, memperlambat brute-force.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">IV</span>
+        <h3>Nonce &amp; salt acak</h3>
+        <p>Setiap enkripsi punya nonce dan salt baru, jadi hasilnya tidak pernah sama dua kali.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">TAG</span>
+        <h3>Deteksi tamper</h3>
+        <p>Auth tag membuat dekripsi otomatis gagal kalau berkas .svault dimodifikasi.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">IMG</span>
+        <h3>Demo visual ECB vs GCM</h3>
+        <p>Lihat langsung kenapa mode ECB membocorkan pola gambar, sedangkan GCM tidak.</p>
+      </div>
+    </div>
+  </section>
+
   <div id="alertBox" class="alert hidden" role="alert"></div>
 
-  <!-- ============================================= -->
-  <!-- BODY: panel input (kiri) + console output(kanan)-->
-  <!-- ============================================= -->
-  <main class="grid">
+  <main class="grid reveal" id="enkripsi">
 
     <section class="panel">
       <h2 class="panel-title">1. Siapkan berkas</h2>
@@ -82,6 +151,14 @@
             </svg>
           </button>
         </div>
+      </div>
+
+      <div class="field">
+        <label for="algorithmSelect">Algoritma enkripsi</label>
+        <select id="algorithmSelect" class="select-input">
+          <option value="aes-gcm">AES-256-GCM</option>
+          <option value="chacha20-poly1305">ChaCha20-Poly1305</option>
+        </select>
       </div>
 
       <div class="actions">
@@ -119,10 +196,16 @@
 
   </main>
 
-  <!-- ============================================= -->
-  <!-- LANGKAH 3: IMAGE CRYPTO VISUALIZATION          -->
-  <!-- ============================================= -->
-  <section class="panel image-demo" id="imageDemo" aria-labelledby="imageDemoTitle">
+  <section class="section-wrap demo-intro reveal">
+    <div class="section-head">
+      <p class="kicker-2">Uji coba langsung</p>
+      <h2>Kenapa mode enkripsi itu penting</h2>
+      <p class="section-sub">Enkripsi yang benar bukan cuma soal algoritmanya, tapi juga cara pakainya. Coba lihat sendiri bedanya lewat gambar di bawah.</p>
+    </div>
+  </section>
+
+  <section class="panel image-demo reveal" id="imageDemo" aria-labelledby="imageDemoTitle">
+    <a id="demo-citra" class="anchor-offset"></a>
     <h2 class="panel-title" id="imageDemoTitle">3. Image Crypto Visualization</h2>
     <p class="demo-note">
       Bandingkan gambar asli dengan hasil AES&#8209;ECB dan AES&#8209;GCM. Gambar dan kata sandi
@@ -197,12 +280,85 @@
     </div>
   </section>
 
-  <footer class="footer">
-    <p>Dikerjakan untuk mata kuliah Keamanan Informasi &middot; Universitas Siliwangi</p>
+  <footer class="footer reveal">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <p class="fbrand-title">Secure File Vault</p>
+        <p>Enkripsi berkas langsung dari browser ke backend, dengan demonstrasi terbuka kenapa pemilihan mode enkripsi itu penting.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Jelajahi</h4>
+        <ul class="footer-link-list">
+          <li><a href="#fitur">Fitur</a></li>
+          <li><a href="#enkripsi">Enkripsi</a></li>
+          <li><a href="#demo-citra">Visualisasi Enkripsi</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Dibuat oleh</h4>
+        <ul>
+          <li>Diyani Rahayu N.</li>
+          <li>Agniya Azzahra</li>
+          <li>Aisyah Nitiarahma</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Secure File Vault</span>
+      <div class="footer-badges">
+        <span class="foot-badge">AES-256-GCM</span>
+        <span class="foot-badge">ChaCha20-Poly1305</span>
+      </div>
+    </div>
   </footer>
 
 </div>
 
 <script src="script.js"></script>
+<script>
+  (function () {
+    // ---- Toggle tema terang/gelap ----
+    var tombolTema = document.getElementById("themeToggle");
+    if (tombolTema) {
+      tombolTema.addEventListener("click", function () {
+        var sekarang = document.documentElement.getAttribute("data-theme");
+        var baru = sekarang === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", baru);
+        try { localStorage.setItem("sfv-theme", baru); } catch (e) { /* abaikan */ }
+      });
+    }
+
+    // ---- Scroll-reveal: section muncul pelan pas discroll ----
+    var elemenReveal = document.querySelectorAll(".reveal");
+    if ("IntersectionObserver" in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      elemenReveal.forEach(function (el) { observer.observe(el); });
+    } else {
+      elemenReveal.forEach(function (el) { el.classList.add("is-visible"); });
+    }
+
+    // ---- Parallax halus di hero, ngikutin posisi kursor ----
+    var heroWrap = document.getElementById("heroWrap");
+    var heroInner = document.getElementById("heroInner");
+    if (heroWrap && heroInner && window.matchMedia("(pointer: fine)").matches) {
+      heroWrap.addEventListener("mousemove", function (e) {
+        var rect = heroWrap.getBoundingClientRect();
+        var x = (e.clientX - rect.left) / rect.width - 0.5;   // -0.5 .. 0.5
+        var y = (e.clientY - rect.top) / rect.height - 0.5;
+        heroInner.style.transform = "translate(" + (x * 10) + "px, " + (y * 6) + "px)";
+      });
+      heroWrap.addEventListener("mouseleave", function () {
+        heroInner.style.transform = "translate(0, 0)";
+      });
+    }
+  })();
+</script>
 </body>
 </html>
