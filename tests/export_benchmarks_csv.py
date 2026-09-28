@@ -29,10 +29,13 @@ def run_csv_export():
         ("File Teks 1 KB", os.path.join(data_dir, "sample_1kb.txt")),
         ("File Teks 1 MB", os.path.join(data_dir, "sample_1mb.txt")),
         ("File Teks 10 MB", os.path.join(data_dir, "sample_10mb.txt")),
-        ("Dokumen PDF", os.path.join(data_dir, "sample.pdf")),
+        ("Dokumen PDF 1", os.path.join(data_dir, "sample.pdf")),
+        ("Dokumen PDF 2", os.path.join(data_dir, "sampel2.pdf")),
         ("Gambar BMP", os.path.join(data_dir, "sample.bmp")),
-        ("Gambar JPG", os.path.join(data_dir, "sample.jpg")),
-        ("Gambar PNG", os.path.join(data_dir, "sample.png"))
+        ("Gambar JPG 1", os.path.join(data_dir, "sample.jpg")),
+        ("Gambar JPG 2", os.path.join(data_dir, "sampel2.jpg")),
+        ("Gambar PNG 1", os.path.join(data_dir, "sample.png")),
+        ("Gambar PNG 2", os.path.join(data_dir, "sampel3.png"))
     ]
     
     password1 = "SandiUjiLaporan123"
