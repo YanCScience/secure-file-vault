@@ -1,45 +1,16 @@
-// =========================================================
-// script.js
-// Logic buat form enkripsi/dekripsi -- manggil API backend
-// =========================================================
-//
-// PENJELASAN ALUR:
-// -----------------
-// ENKRIPSI:
-//   1. User pilih file asli + isi password + pilih algoritma
-//   2. Dikirim ke POST /api/encrypt-file (multipart: file, password, algorithm)
-//   3. Backend balikin JSON: { algorithm, salt, nonce, ciphertext, tag, iterations, filename }
-//      (semua field selain "filename" & "iterations" itu base64 text)
-//   4. JSON itu kita BUNGKUS jadi satu file teks ".svault" dan otomatis di-download.
-//      Ini "amplop" yang isinya semua info buat dekripsi ulang nanti (KECUALI
-//      password -- password TIDAK disimpan di file ini demi keamanan).
-//
-// DEKRIPSI:
-//   1. User upload file ".svault" (hasil dari proses Enkripsi tadi) + isi password
-//   2. File .svault itu isinya teks JSON -> kita baca & parse di browser
-//   3. Kita kirim sebagai JSON body ke POST /api/decrypt-file
-//      (bukan multipart, backend memang minta format JSON polos untuk endpoint ini)
-//   4. Kalau password benar & data tidak diubah -> backend balikin ISI FILE ASLI
-//      (bytes mentah, bukan JSON) -> otomatis di-download dengan nama file aslinya
-//   5. Kalau password salah / data diutak-atik -> backend menolak (auth tag GCM gagal)
-//
-//   Catatan: algoritma untuk dekripsi TIDAK diambil dari dropdown, melainkan dari
-//   field "algorithm" yang tersimpan di dalam berkas .svault itu sendiri, karena
-//   itulah algoritma yang benar-benar dipakai saat berkas itu dienkripsi.
-//
-// =========================================================
-
 const API_BASE_URL = "http://localhost:8000";
 const API_ENCRYPT_URL = API_BASE_URL + "/api/encrypt-file";
 const API_DECRYPT_URL = API_BASE_URL + "/api/decrypt-file";
+const API_ENCRYPT_TEXT_URL = API_BASE_URL + "/api/encrypt-text";
+const API_DECRYPT_TEXT_URL = API_BASE_URL + "/api/decrypt-text";
 
-// Ambil semua elemen HTML yang kepake
+
 const dropzone = document.getElementById("dropzone");
 const dropzoneLabel = document.getElementById("dropzoneLabel");
 const fileInput = document.getElementById("fileInput");
 const passwordInput = document.getElementById("passwordInput");
 const btnTogglePw = document.getElementById("btnTogglePw");
-const algorithmSelect = document.getElementById("algorithmSelect"); // dropdown pilihan algoritma
+const algorithmSelect = document.getElementById("algorithmSelect");
 const btnEncrypt = document.getElementById("btnEncrypt");
 const btnDecrypt = document.getElementById("btnDecrypt");
 const btnCopy = document.getElementById("btnCopy");
@@ -48,6 +19,19 @@ const alertBox = document.getElementById("alertBox");
 const loadingIndicator = document.getElementById("loadingIndicator");
 const statusLine = document.getElementById("statusLine");
 const downloadLink = document.getElementById("downloadLink");
+
+// Elemen mode teks & uji tamper
+const modeFile = document.getElementById("modeFile");
+const modeText = document.getElementById("modeText");
+const fileArea = document.getElementById("fileArea");
+const textArea = document.getElementById("textArea");
+const textInput = document.getElementById("textInput");
+const lblEncrypt = document.getElementById("lblEncrypt");
+const lblDecrypt = document.getElementById("lblDecrypt");
+const btnTamper = document.getElementById("btnTamper");
+
+let mode = "file";     // "file" | "text"
+let lastVault = null;  // hasil enkripsi terakhir (tanpa password) -- bahan uji tamper
 
 
 // =========================================================
@@ -76,12 +60,14 @@ function tampilkanLoading() {
   loadingIndicator.classList.remove("hidden");
   btnEncrypt.disabled = true;
   btnDecrypt.disabled = true;
+  btnTamper.disabled = true;
 }
 
 function sembunyikanLoading() {
   loadingIndicator.classList.add("hidden");
   btnEncrypt.disabled = false;
   btnDecrypt.disabled = false;
+  btnTamper.disabled = false;
 }
 
 function sembunyikanTombolDownload() {
@@ -162,26 +148,51 @@ btnTogglePw.addEventListener("click", () => {
 
 
 // =========================================================
+// PENGALIH MODE: BERKAS <-> TEKS
+// =========================================================
+
+function setMode(baru) {
+  mode = baru;
+  const teks = baru === "text";
+
+  modeFile.classList.toggle("is-active", !teks);
+  modeText.classList.toggle("is-active", teks);
+  modeFile.setAttribute("aria-selected", String(!teks));
+  modeText.setAttribute("aria-selected", String(teks));
+
+  fileArea.classList.toggle("hidden", teks);
+  textArea.classList.toggle("hidden", !teks);
+
+  lblEncrypt.textContent = teks ? "Kunci teks" : "Kunci berkas";
+  lblDecrypt.textContent = teks ? "Buka teks" : "Buka berkas";
+
+  sembunyikanAlert();
+  statusLine.textContent = teks
+    ? "Ketik teks, atau tempel JSON hasil enkripsi untuk dibuka."
+    : "Menunggu berkas dipilih\u2026";
+}
+
+modeFile.addEventListener("click", () => setMode("file"));
+modeText.addEventListener("click", () => setMode("text"));
+
+
+// =========================================================
 // FUNGSI BANTUAN: baca pesan error dari backend (FastAPI)
 // =========================================================
 // FastAPI selalu balikin error dalam bentuk { "detail": "..." }
-// -- BUKAN { "message": "..." } seperti dugaan awal.
 async function bacaPesanError(response, pesanFallback) {
   try {
     const data = await response.json();
     if (typeof data.detail === "string") return data.detail;
   } catch (e) {
-    /* respons bukan JSON, pakai fallback di bawah */
   }
   return pesanFallback;
 }
 
+// ALUR 1: ENKRIPSI BERKAS -- file asli masuk, file .svault keluar
 
-// =========================================================
-// ALUR 1: ENKRIPSI -- file asli masuk, file .svault keluar
-// =========================================================
 
-async function prosesEnkripsi() {
+async function prosesEnkripsiBerkas() {
   sembunyikanAlert();
   sembunyikanTombolDownload();
 
@@ -218,13 +229,13 @@ async function prosesEnkripsi() {
       return;
     }
 
-    // hasil = { algorithm, salt, nonce, ciphertext, tag, iterations, filename }
     const hasil = await response.json();
 
-    // Tampilkan cuplikan cipherteks di kotak "Hasil" (biar keliatan, sesuai requirement soal)
+    lastVault = hasil;                
+    btnTamper.classList.remove("hidden");
+
     outputText.value = hasil.ciphertext;
 
-    // Bungkus SEMUA info (kecuali password) jadi file .svault yang bisa di-download
     const namaFileVault = hasil.filename + ".svault";
     const isiVault = JSON.stringify(hasil, null, 2);
     const blob = new Blob([isiVault], { type: "application/json" });
@@ -236,7 +247,7 @@ async function prosesEnkripsi() {
     );
     statusLine.textContent = "Selesai. Berkas .svault siap diunduh.";
 
-    // Reset form biar siap dipakai lagi (dulu masih nyisain nama file & password lama)
+    // Reset form biar siap dipakai lagi
     fileInput.value = "";
     passwordInput.value = "";
     dropzoneLabel.textContent = "Klik atau seret berkas ke sini";
@@ -250,12 +261,9 @@ async function prosesEnkripsi() {
   }
 }
 
+// ALUR 2: DEKRIPSI BERKAS -- file .svault masuk, file asli keluar
 
-// =========================================================
-// ALUR 2: DEKRIPSI -- file .svault masuk, file asli keluar
-// =========================================================
-
-async function prosesDekripsi() {
+async function prosesDekripsiBerkas() {
   sembunyikanAlert();
   sembunyikanTombolDownload();
 
@@ -275,7 +283,6 @@ async function prosesDekripsi() {
   statusLine.textContent = "Membaca berkas .svault\u2026";
 
   try {
-    // --- baca isi file .svault (teks JSON) dan parse ---
     let vault;
     try {
       const teksVault = await file.text();
@@ -286,7 +293,6 @@ async function prosesDekripsi() {
       return;
     }
 
-    // --- susun payload JSON persis sesuai yang diminta backend ---
     const payload = {
       algorithm: vault.algorithm,
       salt: vault.salt,
@@ -305,8 +311,6 @@ async function prosesDekripsi() {
     });
 
     if (!response.ok) {
-      // Backend sudah kasih pesan yang enak dibaca untuk kasus ini, contoh:
-      // "Kata sandi salah atau berkas telah terdistorsi/diubah."
       const pesan = await bacaPesanError(
         response,
         "Gagal Dekripsi: Kata sandi salah atau berkas telah diubah!"
@@ -328,7 +332,7 @@ async function prosesDekripsi() {
     );
     statusLine.textContent = "Selesai. Berkas asli siap diunduh.";
 
-    // Reset form biar siap dipakai lagi (dulu masih nyisain nama file & password lama)
+    // Reset form biar siap dipakai lagi
     fileInput.value = "";
     passwordInput.value = "";
     dropzoneLabel.textContent = "Klik atau seret berkas ke sini";
@@ -342,13 +346,226 @@ async function prosesDekripsi() {
   }
 }
 
+// ALUR 3: ENKRIPSI TEKS -- teks masuk, JSON (envelope) keluar
 
-// =========================================================
+
+async function prosesEnkripsiTeks() {
+  sembunyikanAlert();
+  sembunyikanTombolDownload();
+
+  const teks = textInput.value;
+  const password = passwordInput.value;
+
+  if (!teks.trim()) {
+    tampilkanAlert("Teksnya masih kosong!", "error");
+    return;
+  }
+  if (!password) {
+    tampilkanAlert("Kata sandi belum diisi!", "error");
+    return;
+  }
+
+  tampilkanLoading();
+  statusLine.textContent = "Mengunci teks\u2026";
+
+  try {
+    const response = await fetch(API_ENCRYPT_TEXT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: teks,
+        password: password,
+        algorithm: algorithmSelect.value,
+      }),
+    });
+
+    if (!response.ok) {
+      const pesan = await bacaPesanError(response, "Gagal mengunci teks.");
+      tampilkanAlert(pesan, "error");
+      statusLine.textContent = "Gagal diproses.";
+      return;
+    }
+
+    // hasil = { algorithm, salt, nonce, ciphertext, tag, iterations }
+    const hasil = await response.json();
+    lastVault = hasil;
+    btnTamper.classList.remove("hidden");
+
+    // Ditampilkan utuh: salin JSON ini, tempel ke kotak teks, lalu klik "Buka teks".
+    outputText.value = JSON.stringify(hasil, null, 2);
+
+    tampilkanAlert(
+      "Teks berhasil dikunci! Salin hasilnya, lalu tempel ke kotak teks untuk membukanya lagi.",
+      "success"
+    );
+    statusLine.textContent = "Selesai. Hasil (JSON) ada di panel kanan.";
+    passwordInput.value = "";
+  } catch (error) {
+    console.error(error);
+    tampilkanAlert("Gagal terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", "error");
+    statusLine.textContent = "Gagal terhubung ke server.";
+  } finally {
+    sembunyikanLoading();
+  }
+}
+
+// ALUR 4: DEKRIPSI TEKS -- JSON (envelope) masuk, teks asli keluar
+
+
+async function prosesDekripsiTeks() {
+  sembunyikanAlert();
+  sembunyikanTombolDownload();
+
+  const password = passwordInput.value;
+
+  if (!textInput.value.trim()) {
+    tampilkanAlert("Tempel JSON hasil enkripsi ke kotak teks dulu ya!", "error");
+    return;
+  }
+  if (!password) {
+    tampilkanAlert("Kata sandi belum diisi!", "error");
+    return;
+  }
+
+  let vault;
+  try {
+    vault = JSON.parse(textInput.value);
+  } catch (e) {
+    tampilkanAlert("Isi kotak teks bukan JSON yang valid. Tempel hasil enkripsi secara utuh.", "error");
+    return;
+  }
+
+  const wajib = ["salt", "nonce", "ciphertext", "tag"];
+  const hilang = wajib.filter((k) => typeof vault[k] !== "string");
+  if (hilang.length > 0) {
+    tampilkanAlert("JSON tidak lengkap, field hilang: " + hilang.join(", "), "error");
+    return;
+  }
+
+  tampilkanLoading();
+  statusLine.textContent = "Membuka teks\u2026";
+
+  try {
+    const response = await fetch(API_DECRYPT_TEXT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        algorithm: vault.algorithm,
+        salt: vault.salt,
+        nonce: vault.nonce,
+        ciphertext: vault.ciphertext,
+        tag: vault.tag,
+        password: password,
+        iterations: vault.iterations,
+      }),
+    });
+
+    if (!response.ok) {
+      const pesan = await bacaPesanError(
+        response,
+        "Gagal dekripsi: kata sandi salah atau data telah diubah!"
+      );
+      tampilkanAlert(pesan, "error");
+      statusLine.textContent = "Gagal diproses.";
+      return;
+    }
+
+    const hasil = await response.json();
+    outputText.value = hasil.decrypted_text;
+
+    tampilkanAlert("Berhasil dibuka! Teks asli tampil di panel hasil.", "success");
+    statusLine.textContent = "Selesai.";
+    passwordInput.value = "";
+  } catch (error) {
+    console.error(error);
+    tampilkanAlert("Gagal terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", "error");
+    statusLine.textContent = "Gagal terhubung ke server.";
+  } finally {
+    sembunyikanLoading();
+  }
+}
+
+// UJI TAMPER: ubah 1 byte ciphertext, lalu coba dekripsi
+
+
+function ubahSatuByte(b64) {
+  const kepala = atob(b64.slice(0, 4));
+  const rusak = String.fromCharCode(kepala.charCodeAt(0) ^ 0x01) + kepala.slice(1);
+  return btoa(rusak) + b64.slice(4);
+}
+
+async function ujiTamper() {
+  sembunyikanAlert();
+
+  if (!lastVault) {
+    tampilkanAlert("Belum ada hasil enkripsi untuk diuji. Kunci sesuatu dulu.", "error");
+    return;
+  }
+
+  const password = passwordInput.value;
+  if (!password) {
+    tampilkanAlert("Isi kata sandi yang BENAR dulu, supaya yang gagal murni karena data diubah.", "error");
+    return;
+  }
+
+  // Kalau ciphertext kosong (berkas 0 byte), ubah tag-nya saja.
+  const bidang = lastVault.ciphertext ? "ciphertext" : "tag";
+  const rusak = { ...lastVault, [bidang]: ubahSatuByte(lastVault[bidang]) };
+
+  tampilkanLoading();
+  statusLine.textContent = "Menguji: 1 byte diubah, lalu dicoba dibuka\u2026";
+
+  try {
+    const response = await fetch(API_DECRYPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        algorithm: rusak.algorithm,
+        salt: rusak.salt,
+        nonce: rusak.nonce,
+        ciphertext: rusak.ciphertext,
+        tag: rusak.tag,
+        password: password,
+        iterations: rusak.iterations,
+      }),
+    });
+
+    const laporan =
+      "UJI TAMPER\n" +
+      "Bidang diubah : " + bidang + " (byte ke-0, bit terendah dibalik)\n" +
+      "Sebelum       : " + lastVault[bidang].slice(0, 8) + "\u2026\n" +
+      "Sesudah       : " + rusak[bidang].slice(0, 8) + "\u2026\n";
+
+    if (!response.ok) {
+      const pesan = await bacaPesanError(response, "Dekripsi ditolak.");
+      outputText.value = laporan + "Hasil         : DITOLAK \u2192 " + pesan;
+      tampilkanAlert("Tamper terdeteksi! Dekripsi ditolak oleh auth tag.", "success");
+      statusLine.textContent = "Uji tamper selesai: perubahan 1 byte terdeteksi.";
+    } else {
+      outputText.value = laporan + "Hasil         : LOLOS (seharusnya tidak terjadi!)";
+      tampilkanAlert("Peringatan: data yang diubah tetap lolos. Periksa implementasinya!", "error");
+      statusLine.textContent = "Uji tamper selesai: TIDAK terdeteksi.";
+    }
+
+    passwordInput.value = "";
+  } catch (error) {
+    console.error(error);
+    tampilkanAlert("Gagal terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", "error");
+    statusLine.textContent = "Gagal terhubung ke server.";
+  } finally {
+    sembunyikanLoading();
+  }
+}
+
 // EVENT LISTENER: tombol-tombol
-// =========================================================
 
-btnEncrypt.addEventListener("click", prosesEnkripsi);
-btnDecrypt.addEventListener("click", prosesDekripsi);
+btnEncrypt.addEventListener("click", () =>
+  mode === "text" ? prosesEnkripsiTeks() : prosesEnkripsiBerkas()
+);
+btnDecrypt.addEventListener("click", () =>
+  mode === "text" ? prosesDekripsiTeks() : prosesDekripsiBerkas()
+);
+btnTamper.addEventListener("click", ujiTamper);
 
 btnCopy.addEventListener("click", () => {
   if (!outputText.value) {
@@ -366,7 +583,7 @@ btnCopy.addEventListener("click", () => {
 //
 // Endpoint backend (backend/main.py):
 //   POST {API_BASE_URL}/api/visualize-bmp   (multipart: file, password)
-// Response backend yang sebenarnya:
+// Response backend:
 //   {
 //     "entropy": { "plain": n, "ecb": n, "gcm": n },
 //     "ecb_bmp_base64": "...",          // BMP utuh (header 54 byte asli + piksel ECB)
@@ -378,9 +595,6 @@ btnCopy.addEventListener("click", () => {
 // header BMP asli supaya browser mau menampilkannya sebagai gambar.
 // =========================================================
 (function () {
-  // Backend belum menyajikan file frontend, jadi alamat API harus absolut.
-  // Ubah kalau backend jalan di host/port lain.
-  const API_BASE_URL = "http://localhost:8000";
   const API_VISUALIZE_URL = API_BASE_URL + "/api/visualize-bmp";
 
   const BMP_HEADER_SIZE = 54;
@@ -406,21 +620,22 @@ btnCopy.addEventListener("click", () => {
   // ---------- alert & status (gaya sama dengan alert utama) ----------
   let timeoutAlertGambar;
 
-function tampilkanAlertGambar(pesan, jenis) {
-  clearTimeout(timeoutAlertGambar);
+  function tampilkanAlertGambar(pesan, jenis) {
+    clearTimeout(timeoutAlertGambar);
 
-  imgAlert.textContent = pesan;
-  imgAlert.className = "alert alert-" + jenis;
+    imgAlert.textContent = pesan;
+    imgAlert.className = "alert alert-" + jenis;
 
-  timeoutAlertGambar = setTimeout(() => {
-    sembunyikanAlertGambar();
-  }, 4000);
-}
+    timeoutAlertGambar = setTimeout(() => {
+      sembunyikanAlertGambar();
+    }, 4000);
+  }
 
-function sembunyikanAlertGambar() {
-  clearTimeout(timeoutAlertGambar);
-  imgAlert.className = "alert hidden";
-}
+  function sembunyikanAlertGambar() {
+    clearTimeout(timeoutAlertGambar);
+    imgAlert.className = "alert hidden";
+  }
+
   function setBusy(busy) {
     btnCompareImage.disabled = busy;
   }
@@ -582,7 +797,7 @@ function sembunyikanAlertGambar() {
     });
   }
 
-  async function bacaPesanError(response) {
+  async function bacaPesanErrorGambar(response) {
     try {
       const data = await response.json();
       if (typeof data.detail === "string") return "Backend menolak permintaan: " + data.detail;
@@ -641,7 +856,7 @@ function sembunyikanAlertGambar() {
       }
 
       if (!response.ok) {
-        tampilkanAlertGambar("Enkripsi gagal. " + (await bacaPesanError(response)), "error");
+        tampilkanAlertGambar("Enkripsi gagal. " + (await bacaPesanErrorGambar(response)), "error");
         imgStatusLine.textContent = "Gagal diproses.";
         return;
       }
@@ -683,5 +898,5 @@ function sembunyikanAlertGambar() {
   }
 
   btnCompareImage.addEventListener("click", bandingkanGambar);
-  
+
 })();
