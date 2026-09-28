@@ -1,6 +1,4 @@
-/* =====================================================
-   TOKENS
-   ===================================================== */
+
 :root {
   --bg: #0b0710;
   --surface: #171025;
@@ -102,9 +100,7 @@ body::before {
   visibility: hidden;
 }
 
-/* =====================================================
-   SCROLL-REVEAL (Motion UI)
-   ===================================================== */
+
 .reveal {
   opacity: 0;
   transform: translateY(26px);
@@ -120,9 +116,7 @@ body::before {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
 
-/* =====================================================
-   NAVBAR
-   ===================================================== */
+
 .navbar {
   position: sticky;
   top: 0;
@@ -200,9 +194,6 @@ body::before {
   .nav-links { display: none; }
 }
 
-/* =====================================================
-   TOMBOL TOGGLE TEMA
-   ===================================================== */
 .theme-toggle {
   width: 36px;
   height: 36px;
@@ -225,9 +216,7 @@ body::before {
 [data-theme="light"] .theme-toggle .icon-sun { display: block; }
 [data-theme="light"] .theme-toggle .icon-moon { display: none; }
 
-/* =====================================================
-   HERO
-   ===================================================== */
+
 .hero-wrap {
   position: relative;
   overflow: hidden;
@@ -337,9 +326,6 @@ body::before {
 .stat-item .num { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text); margin: 0; }
 .stat-item .lbl { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin: 4px 0 0; }
 
-/* =====================================================
-   SECTION: kartu info (hover = aktif, netral kalau tidak)
-   ===================================================== */
 .section-wrap { margin-bottom: 44px; scroll-margin-top: calc(var(--navbar-height) + 12px); }
 
 .section-head { text-align: center; max-width: 540px; margin: 0 auto 26px; }
@@ -364,7 +350,6 @@ body::before {
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.2s ease;
 }
 
-/* Hover = "aktif". Begitu kursor pindah, otomatis balik netral. */
 .feature-card:hover,
 .feature-card:focus-within {
   transform: translateY(-3px);
@@ -410,9 +395,6 @@ body::before {
   .stat-item { flex: 1 1 40%; margin-bottom: 10px; }
 }
 
-/* =====================================================
-   ALERT
-   ===================================================== */
 .alert {
   position: fixed;
   top: calc(var(--navbar-height) + 18px);
@@ -509,9 +491,6 @@ body::before {
 }
 
 
-/* =====================================================
-   LAYOUT: grid dua kolom, tinggi disamakan
-   ===================================================== */
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -534,6 +513,51 @@ body::before {
 }
 
 .panel-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; margin: 0 0 18px; }
+
+.mode-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mode-btn:hover { color: var(--text); }
+.mode-btn.is-active { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
+.mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.text-input {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px;
+}
+
+.text-input:focus { outline: none; border-color: var(--accent); }
+.text-input::placeholder { color: var(--text-muted); font-family: var(--font-body); }
 
 /* =====================================================
    DROPZONE
@@ -564,9 +588,7 @@ body::before {
 .dropzone-label { font-size: 14px; font-weight: 500; color: var(--text); }
 .dropzone-hint { font-size: 12.5px; color: var(--text-muted); }
 
-/* =====================================================
-   FIELD & INPUT
-   ===================================================== */
+
 .field { margin-bottom: 20px; }
 .field label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
 
@@ -616,9 +638,7 @@ body::before {
   outline-offset: 2px;
 }
 
-/* =====================================================
-   BUTTONS
-   ===================================================== */
+
 .actions { display: flex; gap: 10px; margin-bottom: 16px; }
 
 .btn {
@@ -690,7 +710,20 @@ body::before {
 .console-output::placeholder { color: var(--text-muted); font-family: var(--font-body); }
 .console-output:focus { outline: none; border-color: var(--accent); }
 
-.console-footer { min-height: 20px; margin-top: 10px; }
+.console-footer {
+  min-height: 20px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Tombol uji tamper */
+#btnTamper { color: var(--error); margin-left: auto; }
+#btnTamper:hover { color: var(--error); text-decoration: underline; }
+#btnTamper:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .loading { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted); }
 
@@ -705,9 +738,7 @@ body::before {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* =====================================================
-   PEMBATAS SEBELUM DEMO CITRA
-   ===================================================== */
+
 .demo-intro {
   margin-top: 20px;
   position: relative;
@@ -725,9 +756,6 @@ body::before {
   background: linear-gradient(90deg, transparent, var(--border), transparent);
 }
 
-/* =====================================================
-   FOOTER
-   ===================================================== */
 .footer {
   margin: 60px -24px 0;
   border-top: 1px solid var(--border-soft);
@@ -787,9 +815,7 @@ body::before {
   color: var(--text-muted);
 }
 
-/* =====================================================
-   LANGKAH 3: IMAGE CRYPTO VISUALIZATION
-   ===================================================== */
+
 .image-demo { margin-top: 20px; position: relative; scroll-margin-top: calc(var(--navbar-height) + 12px); }
 
 .demo-note { color: var(--text-muted); font-size: 13.5px; margin: -6px 0 18px; max-width: 70ch; }
