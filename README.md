@@ -106,3 +106,4 @@ kebutuhan mengedit `.svault` secara manual untuk menunjukkan skenario demo wajib
 > Catatan: mode ECB di sini **sengaja** dipakai untuk demonstrasi kelemahan, sesuai
 > larangan pemakaian ECB untuk fitur keamanan utama pada ketentuan tugas. Gambar pada
 > bagian ini tidak dirancang untuk didekripsi kembali — fungsinya murni perbandingan visual.
+> bagian ini tidak dirancang untuk didekripsi kembali — fungsinya murni perbandingan visual.
